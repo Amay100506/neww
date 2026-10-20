@@ -1,0 +1,143 @@
+{
+  "dataset_size": 101,
+  "category_classification": {
+    "accuracy": 1.0,
+    "macro_precision": 1.0,
+    "macro_recall": 1.0,
+    "macro_f1": 1.0,
+    "per_class": {
+      "FINANCIAL_AND_TRANSACTIONAL": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1_score": 1.0,
+        "support": 17
+      },
+      "GENERAL_INFORMATIONAL": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1_score": 1.0,
+        "support": 16
+      },
+      "PERSONAL_AND_SOCIAL": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1_score": 1.0,
+        "support": 9
+      },
+      "PROMOTIONAL": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1_score": 1.0,
+        "support": 18
+      },
+      "SECURITY_AND_VERIFICATION": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1_score": 1.0,
+        "support": 24
+      },
+      "SYSTEM_AND_DEVICE": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1_score": 1.0,
+        "support": 6
+      },
+      "WORK_AND_EDUCATION": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1_score": 1.0,
+        "support": 11
+      }
+    },
+    "confusion_matrix": [
+      [
+        17,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        16,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        9,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        18,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        24,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        0,
+        6,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        11
+      ]
+    ],
+    "labels": [
+      "FINANCIAL_AND_TRANSACTIONAL",
+      "GENERAL_INFORMATIONAL",
+      "PERSONAL_AND_SOCIAL",
+      "PROMOTIONAL",
+      "SECURITY_AND_VERIFICATION",
+      "SYSTEM_AND_DEVICE",
+      "WORK_AND_EDUCATION"
+    ]
+  },
+  "otp_detection": {
+    "otp_precision": 1.0,
+    "otp_recall": 1.0,
+    "otp_f1": 1.0,
+    "false_positive_rate": 0.0,
+    "true_positives": 24,
+    "false_positives": 0,
+    "false_negatives": 0,
+    "true_negatives": 77
+  },
+  "latency_benchmarks_ms": {
+    "mean_ms": 1.188,
+    "median_ms": 1.054,
+    "p95_ms": 1.937,
+    "p99_ms": 2.551
+  }
+}

@@ -1,0 +1,27 @@
+# Android Gradle build files
+.gradle/
+build/
+app/build/
+*.iml
+.idea/
+local.properties
+.DS_Store
+
+# Python virtual environment and caches
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.venv/
+env/
+.pytest_cache/
+.coverage
+htmlcov/
+dist/
+*.egg-info/
+# models/*.joblib
+models/*.pkl
+
+# OS files
+Thumbs.db
+Desktop.ini
