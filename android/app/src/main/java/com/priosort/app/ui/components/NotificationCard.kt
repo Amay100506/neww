@@ -256,8 +256,15 @@ fun NotificationCard(
                         CategoryBadge(category = notification.category)
                         Spacer(modifier = Modifier.width(6.dp))
                         if (notification.transactionAmount != null) {
+                            val currencyLabel = when (notification.transactionCurrency) {
+                                "INR" -> "₹"
+                                "USD" -> "\$"
+                                "EUR" -> "€"
+                                "GBP" -> "£"
+                                else -> "Unknown currency "
+                            }
                             Text(
-                                text = "₹${notification.transactionAmount.toInt()}",
+                                text = "$currencyLabel${"%.2f".format(notification.transactionAmount)}",
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = if (notification.transactionType == "CREDIT") Color(0xFF16A34A) else Color(0xFFDC2626)

@@ -17,6 +17,10 @@ class UserPreferencesRepository(private val preferenceDao: PreferenceDao) {
     val retentionDays: Flow<Int> = preferenceDao.observePreference("retention_days")
         .map { it?.value?.toIntOrNull() ?: 7 }
 
+    val hasAcceptedNotificationDisclosure: Flow<Boolean> =
+        preferenceDao.observePreference("notification_disclosure_accepted")
+            .map { it?.value?.toBoolean() ?: false }
+
     val packageSettings: Flow<List<PackageSettingEntity>> = preferenceDao.getAllPackageSettings()
 
     suspend fun setCapturePaused(paused: Boolean) {
@@ -28,7 +32,11 @@ class UserPreferencesRepository(private val preferenceDao: PreferenceDao) {
     }
 
     suspend fun setRetentionDays(days: Int) {
-        preferenceDao.setPreference(UserPreferenceEntity("retention_days", days.toString()))
+        preferenceDao.setPreference(UserPreferenceEntity("retention_days", days.coerceIn(1, 30).toString()))
+    }
+
+    suspend fun acceptNotificationDisclosure() {
+        preferenceDao.setPreference(UserPreferenceEntity("notification_disclosure_accepted", "true"))
     }
 
     suspend fun setPackageImportance(packageName: String, appName: String?, importance: Float) {

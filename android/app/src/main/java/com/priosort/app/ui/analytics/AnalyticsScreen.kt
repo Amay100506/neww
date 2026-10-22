@@ -1,16 +1,12 @@
 package com.priosort.app.ui.analytics
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -18,196 +14,146 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.priosort.app.domain.PriorityLevel
-import com.priosort.app.ui.theme.PriorityCriticalColor
-import com.priosort.app.ui.theme.PriorityHighColor
-import com.priosort.app.ui.theme.PriorityLowColor
-import com.priosort.app.ui.theme.PriorityMediumColor
-import com.priosort.app.ui.theme.PriorityMinimalColor
+import com.priosort.app.util.TimeUtils
+import com.patrykandpatrick.vico.compose.chart.Chart
+import com.patrykandpatrick.vico.compose.chart.column.columnChart
+import com.patrykandpatrick.vico.compose.m3.style.m3ChartStyle
+import com.patrykandpatrick.vico.compose.style.ProvideChartStyle
+import com.patrykandpatrick.vico.core.entry.entryModelOf
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AnalyticsScreen(
-    viewModel: AnalyticsViewModel,
-    modifier: Modifier = Modifier
-) {
+@OptIn(ExperimentalMaterial3Api::class)
+fun AnalyticsScreen(viewModel: AnalyticsViewModel, modifier: Modifier = Modifier) {
     val state by viewModel.uiState.collectAsState()
-
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Priority Analytics", fontWeight = FontWeight.Bold, fontSize = 18.sp) },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White)
-            )
-        },
-        modifier = modifier.fillMaxSize()
-    ) { innerPadding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .background(Color(0xFFF8FAFC))
-                .verticalScroll(rememberScrollState())
-                .padding(16.dp)
-        ) {
-            // KPI Cards
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                KpiCard("Total Captured", "${state.totalCount}", Color(0xFF0F172A), Modifier.weight(1f))
-                KpiCard("OTPs Detected", "${state.otpCount}", PriorityCriticalColor, Modifier.weight(1f))
+    val distribution = listOf(
+        PriorityLevel.CRITICAL to state.criticalCount,
+        PriorityLevel.HIGH to state.highCount,
+        PriorityLevel.MEDIUM to state.mediumCount,
+        PriorityLevel.LOW to state.lowCount,
+        PriorityLevel.MINIMAL to state.minimalCount
+    )
+    val dailyCounts = state.dailyNotificationCounts.associate { it.day to it.count }
+    val activityTimeline = (6 downTo 0).map { daysAgo ->
+        val date = LocalDate.now().minusDays(daysAgo.toLong())
+        date to (dailyCounts[date.toString()] ?: 0)
+    }
+    Scaffold(topBar = { TopAppBar(title = { Text("Analytics") }) }, modifier = modifier.fillMaxSize()) { padding ->
+        Column(Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(18.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            Text("Your activity, on this device", style = MaterialTheme.typography.headlineSmall)
+            Text("Counts reflect notifications currently saved in your inbox. Deleted or expired items are not included.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                MetricCard("Captured", state.totalCount.toString(), Modifier.weight(1f))
+                MetricCard("Verification alerts", state.otpCount.toString(), Modifier.weight(1f))
             }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Priority Distribution Card
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White)
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text(
-                        text = "Priority Level Distribution",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 15.sp,
-                        color = Color(0xFF0F172A)
-                    )
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    val total = maxOf(1, state.totalCount)
-                    DistributionRow("P0 • Critical", state.criticalCount, total, PriorityCriticalColor)
-                    DistributionRow("P1 • High", state.highCount, total, PriorityHighColor)
-                    DistributionRow("P2 • Medium", state.mediumCount, total, PriorityMediumColor)
-                    DistributionRow("P3 • Low", state.lowCount, total, PriorityLowColor)
-                    DistributionRow("P4 • Minimal", state.minimalCount, total, PriorityMinimalColor)
+            Card(shape = RoundedCornerShape(22.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+                Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text("Notification activity · last 7 days", style = MaterialTheme.typography.titleLarge)
+                    ProvideChartStyle(m3ChartStyle()) {
+                        Chart(
+                            chart = columnChart(),
+                            model = entryModelOf(*activityTimeline.map { it.second as Number }.toTypedArray()),
+                            modifier = Modifier.fillMaxWidth().height(170.dp).semantics {
+                                contentDescription = activityTimeline.joinToString(", ") { (date, count) -> "$date: $count notifications" }
+                            }
+                        )
+                    }
+                    activityTimeline.forEach { (date, count) ->
+                        Text("${date.format(DateTimeFormatter.ofPattern("EEE, d MMM", Locale.getDefault()))} · $count", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
                 }
             }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // On-Device Financial Ledger & Spend Analytics Card
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White)
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "💳 On-Device Financial Ledger",
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 15.sp,
-                            color = Color(0xFF0F172A)
-                        )
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(4.dp))
-                                .background(Color(0xFFE0F2FE))
-                                .padding(horizontal = 6.dp, vertical = 2.dp)
-                        ) {
-                            Text("100% Local", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color(0xFF0369A1))
+            Card(shape = RoundedCornerShape(22.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+                Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Financial activity by currency", style = MaterialTheme.typography.titleLarge)
+                    if (state.transactionTotals.isEmpty()) {
+                        Text("No transaction amounts are available in the saved inbox yet.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    } else {
+                        state.transactionTotals.forEach { total ->
+                            val currency = total.transactionCurrency.takeIf { it != "UNKNOWN" } ?: "Unknown currency"
+                            Text("$currency · ${total.transactionType.lowercase().replaceFirstChar(Char::uppercase)} · ${"%.2f".format(total.total)}")
                         }
                     }
-
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    Row(
+                    Text("Searchable transaction ledger", style = MaterialTheme.typography.titleSmall)
+                    OutlinedTextField(
+                        value = state.transactionSearch,
+                        onValueChange = viewModel::setTransactionSearch,
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        // Total Spent
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(Color(0xFFFEF2F2))
-                                .padding(12.dp)
-                        ) {
-                            Column {
-                                Text("Total Debited", fontSize = 11.sp, color = Color(0xFF991B1B))
-                                Text(
-                                    text = "₹${state.totalDebits.toInt()}",
-                                    fontSize = 18.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color(0xFFDC2626)
-                                )
-                            }
-                        }
-
-                        // Total Credited
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(Color(0xFFF0FDF4))
-                                .padding(12.dp)
-                        ) {
-                            Column {
-                                Text("Total Credited", fontSize = 11.sp, color = Color(0xFF166534))
-                                Text(
-                                    text = "₹${state.totalCredits.toInt()}",
-                                    fontSize = 18.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color(0xFF16A34A)
-                                )
+                        singleLine = true,
+                        label = { Text("Search merchant, app, type, amount, currency") }
+                    )
+                    if (state.recentTransactions.isEmpty()) {
+                        Text(if (state.transactionSearch.isBlank()) "No transactions with parsed amounts are saved." else "No matching transactions.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    } else {
+                        state.recentTransactions.forEach { transaction ->
+                            val currency = transaction.transactionCurrency?.takeIf { it != "UNKNOWN" } ?: "Unknown currency"
+                            val merchant = transaction.transactionMerchant?.takeIf(String::isNotBlank)
+                                ?: transaction.applicationName?.takeIf(String::isNotBlank)
+                                ?: transaction.packageName
+                            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                Text(merchant, style = MaterialTheme.typography.bodyMedium)
+                                Text("${transaction.transactionType?.lowercase()?.replaceFirstChar(Char::uppercase) ?: "Transaction"} · $currency ${transaction.transactionAmount?.let { "%.2f".format(it) } ?: "amount unavailable"} · ${TimeUtils.formatRelativeTime(transaction.receivedAt)}", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
                             }
                         }
                     }
-
-                    if (state.recentTransactions.isNotEmpty()) {
-                        Spacer(modifier = Modifier.height(12.dp))
-                        Text("Recent Parsed Transactions:", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = Color(0xFF475569))
-                        Spacer(modifier = Modifier.height(6.dp))
-
-                        state.recentTransactions.take(5).forEach { txn ->
-                            Row(
+                }
+            }
+            MetricCard("User feedback", state.feedbackCount.toString(), Modifier.fillMaxWidth())
+            MetricCard("Burst notifications", state.burstCount.toString(), Modifier.fillMaxWidth())
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                MetricCard("Burst rate", "${if (state.totalCount == 0) 0 else state.burstCount * 100 / state.totalCount}%", Modifier.weight(1f))
+                MetricCard("Manual override rate", "${if (state.totalCount == 0) 0 else state.manualOverrideCount * 100 / state.totalCount}%", Modifier.weight(1f))
+            }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                MetricCard("Exact duplicate copies", state.duplicateCount.toString(), Modifier.weight(1f))
+                MetricCard("Exact duplicate rate", "${if (state.totalCount == 0) 0 else state.duplicateCount * 100 / state.totalCount}%", Modifier.weight(1f))
+            }
+            Card(shape = RoundedCornerShape(22.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+                Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                    Text("Priority distribution", style = MaterialTheme.typography.titleLarge)
+                    if (state.totalCount == 0) {
+                        Text("Your saved notification counts will appear here.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    } else {
+                        ProvideChartStyle(m3ChartStyle()) {
+                            Chart(
+                                chart = columnChart(),
+                                model = entryModelOf(*distribution.map { it.second as Number }.toTypedArray()),
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(vertical = 4.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        text = txn.title ?: "Bank Transaction",
-                                        fontSize = 12.sp,
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = Color(0xFF1E293B)
-                                    )
-                                    Text(
-                                        text = txn.applicationName ?: txn.packageName,
-                                        fontSize = 10.sp,
-                                        color = Color(0xFF94A3B8)
-                                    )
+                                    .height(190.dp)
+                                    .semantics {
+                                        contentDescription = distribution.joinToString(", ") { (level, count) ->
+                                            "${level.displayName}: $count"
+                                        }
+                                    }
+                            )
+                        }
+                        distribution.forEach { (level, count) ->
+                            Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                    Text(level.displayName, style = MaterialTheme.typography.bodyMedium)
+                                    Text("$count · ${((count * 100f) / state.totalCount).toInt()}%", color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
-                                val isCredit = txn.transactionType == "CREDIT"
-                                val sign = if (isCredit) "+" else "-"
-                                val color = if (isCredit) Color(0xFF16A34A) else Color(0xFFDC2626)
-                                Text(
-                                    text = "$sign₹${txn.transactionAmount?.toInt() ?: 0}",
-                                    fontSize = 13.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = color
+                                LinearProgressIndicator(
+                                    progress = { (count.toFloat() / state.totalCount.coerceAtLeast(1)).coerceIn(0f, 1f) },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    color = MaterialTheme.colorScheme.primary,
+                                    trackColor = MaterialTheme.colorScheme.surfaceVariant
                                 )
                             }
                         }
@@ -219,40 +165,11 @@ fun AnalyticsScreen(
 }
 
 @Composable
-private fun KpiCard(label: String, value: String, color: Color, modifier: Modifier = Modifier) {
-    Card(
-        modifier = modifier,
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White)
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text(text = label, fontSize = 12.sp, color = Color(0xFF64748B), fontWeight = FontWeight.Medium)
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(text = value, fontSize = 24.sp, fontWeight = FontWeight.Bold, color = color)
+private fun MetricCard(label: String, value: String, modifier: Modifier = Modifier) {
+    Card(modifier, shape = RoundedCornerShape(22.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+        Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+            Text(label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(value, style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.primary)
         }
-    }
-}
-
-@Composable
-private fun DistributionRow(label: String, count: Int, total: Int, color: Color) {
-    val pct = (count.toFloat() / total.toFloat()) * 100f
-    Column(modifier = Modifier.padding(vertical = 6.dp)) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Text(text = label, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = Color(0xFF334155))
-            Text(text = "$count (${pct.toInt()}%)", fontSize = 12.sp, color = Color(0xFF64748B))
-        }
-        Spacer(modifier = Modifier.height(4.dp))
-        LinearProgressIndicator(
-            progress = { (count.toFloat() / total.toFloat()).coerceIn(0f, 1f) },
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(8.dp)
-                .clip(RoundedCornerShape(4.dp)),
-            color = color,
-            trackColor = Color(0xFFE2E8F0)
-        )
     }
 }

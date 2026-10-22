@@ -13,6 +13,7 @@ object NotificationEventMapper {
         val applicationName: String?,
         val title: String?,
         val body: String?,
+        val senderIdentity: String?,
         val postTimeMs: Long
     )
 
@@ -26,6 +27,7 @@ object NotificationEventMapper {
 
         var title: String? = null
         var text: String? = null
+        var senderIdentity: String? = null
 
         if (extras != null) {
             title = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString()
@@ -35,6 +37,13 @@ object NotificationEventMapper {
             if (text.isNullOrBlank()) {
                 text = extras.getCharSequence(Notification.EXTRA_BIG_TEXT)?.toString()
             }
+            @Suppress("DEPRECATION")
+            val messages = Notification.MessagingStyle.Message.getMessagesFromBundleArray(
+                extras.getParcelableArray(Notification.EXTRA_MESSAGES)
+            )
+            senderIdentity = messages.lastOrNull()?.senderPerson?.name?.toString()
+                ?: extras.getCharSequence(Notification.EXTRA_CONVERSATION_TITLE)?.toString()
+                ?: extras.getCharSequence(Notification.EXTRA_TITLE)?.toString()
         }
 
         // Safe resolution of Application Name
@@ -52,6 +61,7 @@ object NotificationEventMapper {
             applicationName = appName,
             title = title?.trim(),
             body = text?.trim(),
+            senderIdentity = senderIdentity?.trim(),
             postTimeMs = postTime
         )
     }

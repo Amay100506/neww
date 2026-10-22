@@ -1,6 +1,7 @@
 package com.priosort.app
 
 import com.priosort.app.domain.CustomRule
+import com.priosort.app.data.local.DuplicateNotificationContent
 import com.priosort.app.domain.FocusModeType
 import com.priosort.app.domain.NotificationCategory
 import com.priosort.app.domain.NotificationRecord
@@ -8,6 +9,7 @@ import com.priosort.app.domain.PriorityDecision
 import com.priosort.app.domain.PriorityLevel
 import com.priosort.app.domain.ScoreBreakdown
 import com.priosort.app.intelligence.BurstDetector
+import com.priosort.app.intelligence.ExactDuplicateAnalyzer
 import com.priosort.app.intelligence.CustomRuleMatcher
 import com.priosort.app.intelligence.FocusModeEngine
 import com.priosort.app.util.DataExporter
@@ -63,6 +65,27 @@ class FocusModeAndBurstTest {
     }
 
     @Test
+    fun sleepAndCustomModesNeverElevateMinimalAlerts() {
+        val minimalDecision = PriorityDecision(
+            priorityLevel = PriorityLevel.MINIMAL,
+            scoreBreakdown = ScoreBreakdown(0f, 0f, 0f, 0f, 0f, 0f),
+            isOverridden = false,
+            overrideReason = null,
+            applicableRule = null,
+            explanations = emptyList()
+        )
+        listOf(FocusModeType.SLEEP, FocusModeType.CUSTOM).forEach { mode ->
+            val result = FocusModeEngine.applyFocusMode(
+                decision = minimalDecision,
+                category = NotificationCategory.GENERAL_INFORMATIONAL,
+                activeMode = mode
+            )
+            assertEquals(PriorityLevel.MINIMAL, result.adjustedLevel)
+            assertFalse(result.wasAdjusted)
+        }
+    }
+
+    @Test
     fun testBurstSuppressionDetection() {
         val now = 1000000L
         val recentNotifs = listOf(
@@ -82,6 +105,37 @@ class FocusModeAndBurstTest {
         // 2 prior + 1 new = 3 -> Triggers burst warning!
         assertTrue(burstResult.isBurst)
         assertEquals(3, burstResult.burstCount)
+        assertEquals(setOf("key_1", "key_2"), burstResult.matchingEventKeys.toSet())
+    }
+
+    @Test
+    fun burstDetectorIgnoresFutureAndExpiredNotifications() {
+        val now = 1_000_000L
+        val result = BurstDetector.analyzeBurst(
+            newTitle = "Group Chat",
+            newBody = "Another message",
+            newPackageName = "com.whatsapp",
+            recentNotifications = listOf(
+                createRecord(id = 1, pkg = "com.whatsapp", title = "Group Chat", time = now + 10_000),
+                createRecord(id = 2, pkg = "com.whatsapp", title = "Group Chat", time = now - 181_000)
+            ),
+            windowMs = 180_000,
+            nowMs = now
+        )
+        assertFalse(result.isBurst)
+        assertEquals(1, result.burstCount)
+    }
+
+    @Test
+    fun exactDuplicateAnalyticsMatchesInboxClustersAndCountsRedundantCopies() {
+        val records = listOf(
+            DuplicateNotificationContent("chat.app", " Hello! ", " Same body ", 10_000),
+            DuplicateNotificationContent("chat.app", "hello", "same body", 9_000),
+            DuplicateNotificationContent("chat.app", "HELLO", "SAME BODY", 8_000),
+            DuplicateNotificationContent("chat.app", "hello", "same body", -171_000),
+            DuplicateNotificationContent("mail.app", "hello", "same body", 9_500)
+        )
+        assertEquals(2, ExactDuplicateAnalyzer.redundantCopyCount(records))
     }
 
     @Test

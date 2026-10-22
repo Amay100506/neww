@@ -6,10 +6,12 @@ import java.util.Calendar
  * Focus Mode types for time-of-day contextual prioritization.
  */
 enum class FocusModeType(val displayName: String, val description: String) {
-    OFF("Standard", "Default prioritization policy"),
-    WORK("Work Mode", "Prioritize Work & Education; suppress Promotional & Social"),
-    SLEEP("Sleep / DND", "Strict filter: Only Critical P0 (OTPs & Fraud) alert"),
-    PERSONAL("Personal / Leisure", "Prioritize Personal & Social; demote Work")
+    OFF("Off", "Use your regular priority settings"),
+    STUDY("Study", "Raise study and education alerts; lower promotions and casual messages"),
+    WORK("Work", "Raise work alerts; lower promotions and casual messages"),
+    SLEEP("Sleep", "Lower non-critical alerts while preserving Critical alerts"),
+    PERSONAL("Personal", "Raise personal messages and lower work alerts"),
+    CUSTOM("Custom", "Use your saved category priority preferences")
 }
 
 data class FocusModeConfig(
@@ -18,7 +20,9 @@ data class FocusModeConfig(
     val workStartHour: Int = 9,
     val workEndHour: Int = 18,
     val sleepStartHour: Int = 22,
-    val sleepEndHour: Int = 7
+    val sleepEndHour: Int = 7,
+    val allowlistedPackageNames: Set<String> = emptySet(),
+    val allowlistedCategories: Set<NotificationCategory> = emptySet()
 ) {
     /**
      * Resolves the active focus mode based on current time if auto-scheduling is enabled.

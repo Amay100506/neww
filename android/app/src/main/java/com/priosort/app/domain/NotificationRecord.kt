@@ -35,10 +35,16 @@ data class NotificationRecord(
     val isExcluded: Boolean = false,
     val isArchived: Boolean = false,
     val isSnoozed: Boolean = false,
+    val isActiveOnSystem: Boolean = true,
+    val isManuallyOverridden: Boolean = false,
     val snoozedUntilMs: Long? = null,
     val isVip: Boolean = false,
     val deliveryStatus: String? = null,
     val transactionAmount: Double? = null,
     val transactionType: String? = null,
-    val retentionExpiresAt: Long? = null
+    val transactionCurrency: String? = null,
+    val transactionMerchant: String? = null,
+    val retentionExpiresAt: Long? = null,
+    val isBurst: Boolean = false,
+    val burstCount: Int = 1
 )

@@ -3,6 +3,7 @@ package com.priosort.app.data.local.entities
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import androidx.room.ColumnInfo
 import com.priosort.app.domain.NotificationCategory
 import com.priosort.app.domain.NotificationRecord
 import com.priosort.app.domain.PriorityLevel
@@ -50,12 +51,18 @@ data class NotificationEntity(
     val isExcluded: Boolean = false,
     val isArchived: Boolean = false,
     val isSnoozed: Boolean = false,
+    @ColumnInfo(defaultValue = "1") val isActiveOnSystem: Boolean = true,
+    @ColumnInfo(defaultValue = "0") val isManuallyOverridden: Boolean = false,
     val snoozedUntilMs: Long? = null,
     val isVip: Boolean = false,
     val deliveryStatus: String? = null,
     val transactionAmount: Double? = null,
     val transactionType: String? = null,
-    val retentionExpiresAt: Long? = null
+    @ColumnInfo(defaultValue = "'UNKNOWN'") val transactionCurrency: String = "UNKNOWN",
+    val transactionMerchant: String? = null,
+    val retentionExpiresAt: Long? = null,
+    @ColumnInfo(defaultValue = "0") val isBurst: Boolean = false,
+    @ColumnInfo(defaultValue = "1") val burstCount: Int = 1
 ) {
     fun toDomain(): NotificationRecord {
         return NotificationRecord(
@@ -90,12 +97,18 @@ data class NotificationEntity(
             isExcluded = isExcluded,
             isArchived = isArchived,
             isSnoozed = isSnoozed,
+            isActiveOnSystem = isActiveOnSystem,
+            isManuallyOverridden = isManuallyOverridden,
             snoozedUntilMs = snoozedUntilMs,
             isVip = isVip,
             deliveryStatus = deliveryStatus,
             transactionAmount = transactionAmount,
             transactionType = transactionType,
-            retentionExpiresAt = retentionExpiresAt
+            transactionCurrency = transactionCurrency,
+            transactionMerchant = transactionMerchant,
+            retentionExpiresAt = retentionExpiresAt,
+            isBurst = isBurst,
+            burstCount = burstCount
         )
     }
 
@@ -133,12 +146,18 @@ data class NotificationEntity(
                 isExcluded = record.isExcluded,
                 isArchived = record.isArchived,
                 isSnoozed = record.isSnoozed,
+                isActiveOnSystem = record.isActiveOnSystem,
+                isManuallyOverridden = record.isManuallyOverridden,
                 snoozedUntilMs = record.snoozedUntilMs,
                 isVip = record.isVip,
                 deliveryStatus = record.deliveryStatus,
                 transactionAmount = record.transactionAmount,
                 transactionType = record.transactionType,
-                retentionExpiresAt = record.retentionExpiresAt
+                transactionCurrency = record.transactionCurrency ?: "UNKNOWN",
+                transactionMerchant = record.transactionMerchant,
+                retentionExpiresAt = record.retentionExpiresAt,
+                isBurst = record.isBurst,
+                burstCount = record.burstCount.coerceAtLeast(1)
             )
         }
     }

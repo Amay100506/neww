@@ -8,17 +8,6 @@ import com.priosort.app.domain.PriorityLevel
  */
 object VipManager {
 
-    private val DEFAULT_VIP_KEYWORDS = setOf(
-        "mom",
-        "dad",
-        "boss",
-        "doctor",
-        "hospital",
-        "emergency",
-        "principal",
-        "director"
-    )
-
     data class VipCheckResult(
         val isVip: Boolean,
         val matchedVipName: String?,
@@ -30,7 +19,7 @@ object VipManager {
         body: String?,
         userVipKeywords: Set<String> = emptySet()
     ): VipCheckResult {
-        val combinedKeywords = DEFAULT_VIP_KEYWORDS + userVipKeywords.map { it.lowercase() }
+        val combinedKeywords = userVipKeywords.map { it.lowercase() }.toSet()
         val checkText = "${title ?: ""} ${body ?: ""}".lowercase()
 
         for (vip in combinedKeywords) {

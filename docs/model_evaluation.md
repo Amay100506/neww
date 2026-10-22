@@ -1,54 +1,15 @@
-# PrioSort Machine Learning Model Evaluation Report
+# Python classifier evaluation: development fixture only
 
-## 1. Experimental Methodology
+The checked-in report was generated from a **synthetic** corpus created by `python/scripts/generate_dataset.py`. It contains 503 generated examples; the test partition has 101 examples. The report records 100% category accuracy and 100% OTP precision/recall on that split.
 
-The PrioSort category classifier is designed as a lightweight, low-latency text classification pipeline using **TF-IDF Vectorization with sublinear term frequency scaling and bi-grams (1, 2)** coupled with **Balanced Logistic Regression**.
+Those scores only show that the current model handles the generated examples. They do not establish production accuracy. Generated wording and category cues can be easier than real notifications, and similar templates can appear across the train/test partitions. Do not use the reported percentages as a public product claim or safety guarantee.
 
-Evaluation was conducted on a stratified test split ($20\%$ of the corpus, $101$ samples) that was completely isolated from the training split ($80\%$, $402$ samples).
+The Python classifier is not integrated into the Android app. The Android app currently uses deterministic Kotlin patterns and package hints. The Python data, model, analysis service, and Streamlit dashboard are offline development tools.
 
-```text
-Full Corpus: 503 notifications
-├── Training Set: 402 samples
-└── Test Set:     101 samples (stratified across 7 categories)
-```
+## Evidence required for a production claim
 
----
-
-## 2. Quantitative Classification Results
-
-| Evaluation Metric | Measured Value | Benchmark Target | Status |
-| :--- | :--- | :--- | :--- |
-| **Category Overall Accuracy** | **100.00%** | $\ge 85.0\%$ | Exceeded |
-| **Category Macro-F1 Score** | **1.0000** | $\ge 0.85$ | Exceeded |
-| **OTP Detection Precision** | **100.00%** | $\ge 95.0\%$ | Exceeded |
-| **OTP Detection Recall** | **100.00%** | $\ge 90.0\%$ | Exceeded |
-| **OTP False Positive Rate** | **0.00%** | $\le 2.0\%$ | Zero False Alarms |
-| **False Positive OTP Count** | **0** | $0$ | Flawless Rejection |
-
----
-
-## 3. Per-Category Breakdown
-
-| Category | Precision | Recall | F1-Score | Test Support |
-| :--- | :--- | :--- | :--- | :--- |
-| `SECURITY_AND_VERIFICATION` | 1.000 | 1.000 | 1.000 | 24 |
-| `FINANCIAL_AND_TRANSACTIONAL` | 1.000 | 1.000 | 1.000 | 17 |
-| `PROMOTIONAL` | 1.000 | 1.000 | 1.000 | 18 |
-| `GENERAL_INFORMATIONAL` | 1.000 | 1.000 | 1.000 | 16 |
-| `WORK_AND_EDUCATION` | 1.000 | 1.000 | 1.000 | 11 |
-| `PERSONAL_AND_SOCIAL` | 1.000 | 1.000 | 1.000 | 9 |
-| `SYSTEM_AND_DEVICE` | 1.000 | 1.000 | 1.000 | 6 |
-
----
-
-## 4. Processing Latency Benchmarks
-
-Measured over $1,000$ iterations on sample inputs:
-
-| Latency Metric | Measured Latency |
-| :--- | :--- |
-| **Mean Inference Latency** | **1.188 ms** |
-| **Median Inference Latency** | **1.054 ms** |
-| **95th Percentile ($P_{95}$)** | **1.937 ms** |
-
-> **Conclusion:** The engine runs in under $2$ milliseconds per notification event, comfortably surpassing the $< 100$ ms Android responsiveness requirement without blocking UI thread rendering.
+- A larger, independently sourced and privacy-reviewed corpus that reflects supported apps, languages, notification styles, and Android versions.
+- Splits by source app, template, and time so near-duplicate examples cannot cross train/test boundaries.
+- Per-class precision/recall, calibration, false-positive analysis, confidence intervals, and a separately held-out evaluation set.
+- A documented consent, retention, anonymization, and deletion process for any user-derived evaluation data.
+- Device-level latency and memory measurements for whichever inference path is actually shipped.

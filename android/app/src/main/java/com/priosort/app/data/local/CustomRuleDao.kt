@@ -22,4 +22,7 @@ interface CustomRuleDao {
 
     @Query("DELETE FROM custom_rules WHERE id = :id")
     suspend fun deleteRule(id: Long)
+
+    @Query("DELETE FROM custom_rules")
+    suspend fun deleteAllRules()
 }

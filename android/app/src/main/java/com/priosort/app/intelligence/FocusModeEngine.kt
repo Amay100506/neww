@@ -19,7 +19,8 @@ object FocusModeEngine {
     fun applyFocusMode(
         decision: PriorityDecision,
         category: NotificationCategory,
-        activeMode: FocusModeType
+        activeMode: FocusModeType,
+        allowlisted: Boolean = false
     ): FocusAdjustmentResult {
         if (activeMode == FocusModeType.OFF) {
             return FocusAdjustmentResult(decision.priorityLevel, false, null)
@@ -29,16 +30,17 @@ object FocusModeEngine {
         if (decision.priorityLevel == PriorityLevel.CRITICAL) {
             return FocusAdjustmentResult(decision.priorityLevel, false, null)
         }
+        if (allowlisted) return FocusAdjustmentResult(decision.priorityLevel, false, null)
 
         return when (activeMode) {
-            FocusModeType.WORK -> {
+            FocusModeType.STUDY, FocusModeType.WORK -> {
                 when (category) {
                     NotificationCategory.WORK_AND_EDUCATION -> {
                         if (decision.priorityLevel.rank < PriorityLevel.HIGH.rank) {
                             FocusAdjustmentResult(
                                 PriorityLevel.HIGH,
                                 true,
-                                "Work Mode active: Boosted work & education alert to High (P1)"
+                                "${activeMode.displayName} Mode: Boosted work & education alert to High (P1)"
                             )
                         } else {
                             FocusAdjustmentResult(decision.priorityLevel, false, null)
@@ -48,7 +50,7 @@ object FocusModeEngine {
                         FocusAdjustmentResult(
                             PriorityLevel.MINIMAL,
                             true,
-                            "Work Mode active: Promotional advertisement demoted to Minimal (P4)"
+                            "${activeMode.displayName} Mode: Promotional advertisement demoted to Minimal (P4)"
                         )
                     }
                     NotificationCategory.PERSONAL_AND_SOCIAL -> {
@@ -56,7 +58,7 @@ object FocusModeEngine {
                         FocusAdjustmentResult(
                             demoted,
                             true,
-                            "Work Mode active: Casual personal communication demoted during work hours"
+                            "${activeMode.displayName} Mode: Casual personal communication demoted"
                         )
                     }
                     else -> FocusAdjustmentResult(decision.priorityLevel, false, null)
@@ -64,12 +66,12 @@ object FocusModeEngine {
             }
 
             FocusModeType.SLEEP -> {
-                // Sleep Mode: Non-critical notifications are demoted to Low or Minimal
-                val demoted = if (decision.priorityLevel.rank >= PriorityLevel.HIGH.rank) PriorityLevel.MEDIUM else PriorityLevel.LOW
+                // Keep existing Low/Minimal priorities from being accidentally promoted.
+                val demoted = if (decision.priorityLevel.rank > PriorityLevel.LOW.rank) PriorityLevel.LOW else decision.priorityLevel
                 FocusAdjustmentResult(
                     demoted,
-                    true,
-                    "Sleep / DND Mode active: Suppressed to prevent night-time disturbance"
+                    demoted != decision.priorityLevel,
+                    if (demoted != decision.priorityLevel) "Sleep Mode: Non-critical alert lowered to ${demoted.displayName}" else null
                 )
             }
 
@@ -99,6 +101,14 @@ object FocusModeEngine {
             }
 
             FocusModeType.OFF -> FocusAdjustmentResult(decision.priorityLevel, false, null)
+            FocusModeType.CUSTOM -> {
+                val lowered = if (decision.priorityLevel.rank > PriorityLevel.LOW.rank) PriorityLevel.LOW else decision.priorityLevel
+                FocusAdjustmentResult(
+                    lowered,
+                    lowered != decision.priorityLevel,
+                    if (lowered != decision.priorityLevel) "Custom Focus Mode: non-allowlisted notification lowered to ${lowered.displayName}" else null
+                )
+            }
         }
     }
 }

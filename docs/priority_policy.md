@@ -18,23 +18,13 @@ Where each component is normalized between $0.0$ and $100.0$:
   - Personal Communication: $45$
   - Routine Informational Update: $30$
   - Promotional Advertisement: $10$
-- **$A$ (Action Requirement):**
-  - Explicit action required (Passcode entry, Fraud review, Pay now): $100$
-  - Urgent review requested (Action keywords detected): $75$
-  - Potential action required (Submission due): $50$
-  - Informational / No action detected: $0$
-- **$D$ (Deadline Proximity):**
-  - Imminent expiry within $1$ hour: $100$
-  - Expiry or deadline within $24$ hours (e.g. Due today): $90$
-  - Deadline within $1$ to $2$ days (e.g. Due tomorrow): $70$
-  - Deadline between $3$ and $7$ days: $40$
-  - Deadline more than $7$ days away: $20$
-  - No deadline resolved: $0$
+- **$A$ (Action Requirement):** In the current Android implementation, OTPs and detected fraud/payment failures score $100$; configured explicit action phrases score $75$; other notifications score $0$. A separate $50$ potential-action score is not currently produced by the Kotlin action detector.
+- **$D$ (Deadline Proximity):** The current Kotlin detector uses text heuristics. Expiry in at most one hour scores $100$; expiry in up to 24 hours scores $90$; longer explicit hour offsets score $70$. “Due today” scores $90$, “due tomorrow” scores $70$, and generic deadline phrases score $70$. Unrecognized/no deadline scores $0$. Calendar dates and the 1–7 day bands are not currently resolved.
 - **$I$ (User-Defined Importance):**
   - Configurable application-specific or category-specific importance rating (Default: $50$).
 - **$R$ (Recency Exponential Decay):**
   $$R = 100 \times \exp\left(-\frac{\text{age\_hours}}{\tau}\right)$$
-  Where $\tau$ is the decay half-life parameter (default $\tau = 24.0$ hours). Freshly received notifications receive $R \approx 100$.
+  Where $\tau$ is the decay time constant (default $\tau = 24.0$ hours). Freshly received notifications receive $R \approx 100$; the score halves after about 16.6 hours.
 
 ---
 
@@ -52,7 +42,7 @@ Where each component is normalized between $0.0$ and $100.0$:
 
 ## 3. Deterministic Rule Precedence Hierarchy
 
-The raw mathematical score $S$ can be overridden by explicit, high-confidence domain rules. PrioSort never alters the mathematical score to disguise an override; both the base score and the override reason are stored and displayed.
+The raw mathematical score $S$ can be overridden by domain rules. The base score remains stored separately from the final priority. The rules below summarize the Kotlin engine; the capture pipeline then applies category preferences, matching custom priority rules, VIP elevation, and out-for-delivery elevation. OTP and fraud priorities are protected from category/custom priority changes.
 
 ```mermaid
 flowchart TD
@@ -62,16 +52,20 @@ flowchart TD
     D -->|"Yes"| E["Override to P0 (Critical)"]
     D -->|"No"| F{"Rule 2: Credible Fraud / Account Security Alert?"}
     F -->|"Yes"| G["Override to P0 (Critical)"]
-    F -->|"No"| H{"Rule 3: Payment Failure or Urgent Deadline (<24h)?"}
+    F -->|"No"| H{"Rule 3: Payment Failure?"}
     H -->|"Yes"| I["Promote to at least P1 (High)"]
     H -->|"No"| J{"Rule 4: Important Financial Transaction Alert?"}
     J -->|"Yes"| K["Promote to at least P1 (High)"]
-    J -->|"No"| L{"Rule 5: Promotional Advertisement?"}
-    L -->|"Yes"| M["Demote to P4 (Minimal) if User Importance <= 50"]
-    L -->|"No"| N{"Rule 6: Personal Message or Routine Receipt?"}
-    N -->|"Yes"| O["Ensure at least P2 (Medium)"]
-    N -->|"No"| P["Apply Standard Formula S Mapping"]
+    J -->|"No"| L{"Rule 5: Promotional Advertisement and importance <= 50?"}
+    L -->|"Yes"| M["Demote to P4 (Minimal)"]
+    L -->|"No"| N{"Rule 6: Deadline score >= 70?"}
+    N -->|"Yes"| O["Promote to at least P1 (High)"]
+    N -->|"No"| P{"Personal message or routine transaction below P2?"}
+    P -->|"Yes"| Q["Promote to P2 (Medium)"]
+    P -->|"No"| R["Keep standard formula mapping"]
 ```
+
+After these engine rules, user category preferences and custom priority rules can set a different priority (except for detected OTPs and fraud alerts). VIP contacts and out-for-delivery status can then raise a lower priority to High.
 
 ---
 
@@ -86,6 +80,6 @@ Category describes **what** a notification concerns; Priority describes **how ur
 | "Payment of Rs 3,200 to Electricity Board failed" | Financial & Transactional | $P_1$ (High) | Payment failure requiring prompt rectification |
 | "Rs 150 debited at Starbucks via UPI" | Financial & Transactional | $P_2$ (Medium) | Routine receipt |
 | "Assignment 3 is due today at 11:59 PM" | Work & Education | $P_1$ (High) | Submission deadline within 24 hours |
-| "Mom: Emergency, please call me" | Personal & Social | $P_1$ (High) | Urgent personal message |
+| "Mom: Emergency, please call me" | Personal & Social | $P_2$ (Medium) | Personal messages are raised to at least Medium; this wording alone is not a configured urgent-message trigger |
 | "Rahul: Hey, what time are we meeting?" | Personal & Social | $P_2$ (Medium) | Routine casual message |
 | "Flipkart: Flat 50% discount on shoes" | Promotional | $P_4$ (Minimal) | Promotional advertisement |

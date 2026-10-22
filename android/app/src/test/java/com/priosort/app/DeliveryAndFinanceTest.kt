@@ -55,11 +55,12 @@ class DeliveryAndFinanceTest {
 
     @Test
     fun testVipSenderDetection() {
-        val vipResult = VipManager.checkVip(title = "Mom", body = "Please call me immediately when you see this.")
+        val vipResult = VipManager.checkVip(title = "Mom", body = "Please call me immediately when you see this.", userVipKeywords = setOf("Mom"))
         assertTrue(vipResult.isVip)
         assertEquals("Mom", vipResult.matchedVipName)
 
-        val bossResult = VipManager.checkVip(title = "Boss", body = "Can you send the slides before 10 AM?")
+        val bossResult = VipManager.checkVip(title = "Boss", body = "Can you send the slides before 10 AM?", userVipKeywords = setOf("Boss"))
         assertTrue(bossResult.isVip)
+        assertTrue(!VipManager.checkVip(title = "Boss", body = "Can you send the slides before 10 AM?").isVip)
     }
 }

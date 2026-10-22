@@ -15,6 +15,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 from priosort_ml.preprocessing import TextPreprocessor
 from priosort_ml.classifier import NotificationClassifier
 from priosort_ml.priority_simulator import PrioritySimulator, sort_notifications
+from priosort_ml.analysis_service import NotificationAnalysisService
 
 
 st.set_page_config(
@@ -61,10 +62,11 @@ def load_components():
     classifier = None
     if os.path.exists(model_path):
         classifier = NotificationClassifier.load(model_path)
-    return preprocessor, simulator, classifier
+    analysis_service = NotificationAnalysisService(classifier, preprocessor, simulator)
+    return preprocessor, simulator, classifier, analysis_service
 
 
-preprocessor, simulator, classifier = load_components()
+preprocessor, simulator, classifier, analysis_service = load_components()
 
 # Sidebar Navigation
 st.sidebar.image("https://img.icons8.com/fluency/96/appointment-reminders.png", width=64)
@@ -306,39 +308,45 @@ elif menu == "Single Notification Inspector":
         submitted = st.form_submit_button("Analyze & Prioritize")
 
     if submitted:
-        features = preprocessor.extract_features(title_input, body_input, pkg_input)
-        pred_cat, conf, prob_dict = classifier.predict(features["normalized_text"]) if classifier else ("UNKNOWN", 0.0, {})
-        if pred_cat == "UNKNOWN" and features.get("package_category_hint"):
-            pred_cat = features["package_category_hint"]
-
         deadline_arg = deadline_hrs if deadline_hrs > 0 else None
-        decision = simulator.evaluate(
-            features=features,
-            predicted_category=pred_cat,
-            category_confidence=conf,
+        result = analysis_service.analyze(
+            title_input,
+            body_input,
+            package_name=pkg_input,
             user_app_importance=float(user_imp),
             deadline_hours_remaining=deadline_arg
         )
+        decision = result["priority"]
+        pred_cat = result["category"]
+        conf = result["category_confidence"]
+        prob_dict = result["category_probabilities"]
 
         st.divider()
         st.subheader("Analysis Results")
 
         res1, res2, res3 = st.columns(3)
-        res1.metric("Assigned Priority", f"{decision.priority_level} ({decision.priority_name})")
+        res1.metric("Assigned Priority", f"{decision['level']} ({decision['name']})")
         res2.metric("Category", pred_cat, f"Conf: {conf * 100:.1f}%")
-        res3.metric("Base Numerical Score (S)", f"{decision.base_score} / 100")
+        res3.metric("Base Numerical Score (S)", f"{decision['base_score']} / 100")
 
         # Score Breakdown Chart
         st.write("#### 📊 Formula Breakdown: $S = 0.30U + 0.25A + 0.25D + 0.15I + 0.05R$")
         breakdown_df = pd.DataFrame([
-            {"Component": "Urgency (U)", "Value": decision.urgency_score, "Weight": "30%", "Weighted Contribution": decision.urgency_score * 0.30},
-            {"Component": "Action (A)", "Value": decision.action_score, "Weight": "25%", "Weighted Contribution": decision.action_score * 0.25},
-            {"Component": "Deadline (D)", "Value": decision.deadline_score, "Weight": "25%", "Weighted Contribution": decision.deadline_score * 0.25},
-            {"Component": "Importance (I)", "Value": decision.importance_score, "Weight": "15%", "Weighted Contribution": decision.importance_score * 0.15},
-            {"Component": "Recency (R)", "Value": decision.recency_score, "Weight": "5%", "Weighted Contribution": decision.recency_score * 0.05}
+            {"Component": "Urgency (U)", "Value": decision["score_breakdown"]["urgency"], "Weight": "30%", "Weighted Contribution": decision["score_breakdown"]["urgency"] * 0.30},
+            {"Component": "Action (A)", "Value": decision["score_breakdown"]["action"], "Weight": "25%", "Weighted Contribution": decision["score_breakdown"]["action"] * 0.25},
+            {"Component": "Deadline (D)", "Value": decision["score_breakdown"]["deadline"], "Weight": "25%", "Weighted Contribution": decision["score_breakdown"]["deadline"] * 0.25},
+            {"Component": "Importance (I)", "Value": decision["score_breakdown"]["importance"], "Weight": "15%", "Weighted Contribution": decision["score_breakdown"]["importance"] * 0.15},
+            {"Component": "Recency (R)", "Value": decision["score_breakdown"]["recency"], "Weight": "5%", "Weighted Contribution": decision["score_breakdown"]["recency"] * 0.05}
         ])
         st.dataframe(breakdown_df)
 
         st.write("#### 🧠 Explainability Trace")
-        for exp in decision.explanations:
+        for exp in decision["explanations"]:
             st.markdown(f"- {exp}")
+
+        if prob_dict:
+            st.write("#### Category Probabilities")
+            st.dataframe(pd.DataFrame(
+                sorted(prob_dict.items(), key=lambda item: item[1], reverse=True),
+                columns=["Category", "Probability"]
+            ))

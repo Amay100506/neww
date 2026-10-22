@@ -1,174 +1,59 @@
 # PrioSort
 
-## Intelligent Android Notification Prioritization and Reordering System
+PrioSort is a local-first Android notification inbox. With the user's explicit Notification Access permission it captures notifications, classifies and sorts them in its own inbox, and can play additional sounds based on locally stored rules. It does not reorder the Android notification shade or replace sounds controlled by other apps.
 
-> **Core Principle:** Importance should determine presentation order, not arrival time alone.
+## Android features
 
-[![Kotlin](https://img.shields.io/badge/Kotlin-1.9.24-blue.svg)](https://kotlinlang.org)
-[![Android SDK](https://img.shields.io/badge/Android%20SDK-API%2026--34-green.svg)](https://developer.android.com)
-[![Jetpack Compose](https://img.shields.io/badge/Jetpack%20Compose-Material%203-blueviolet.svg)](https://developer.android.com/jetpack/compose)
-[![Python](https://img.shields.io/badge/Python-3.11%2B-blue.svg)](https://www.python.org)
-[![Scikit-Learn](https://img.shields.io/badge/Scikit--Learn-1.3%2B-orange.svg)](https://scikit-learn.org)
-[![License](https://img.shields.io/badge/License-Apache%202.0-lightgrey.svg)](LICENSE)
+- Kotlin, Jetpack Compose, Material 3, Room, DataStore, coroutines and StateFlow.
+- Five navigation tabs: Smart Inbox, Sound Studio, Light Studio, Analytics and Settings. Settings also links to the rule simulator.
+- Local priority classification, OTP redaction, app exclusions, pinning, snoozing, read state, category preferences, VIP contacts and custom rules.
+- Sound rules can match an app, category, available sender identity, priority, focus mode or text keyword. Rules can be edited, previewed, and use a selected file or Android's built-in notification/ringtone/alarm sound, rule/global volume, vibration patterns, repeat count, per-rule cooldown and a per-rule quiet-hours exception. Android may revoke access to selected files; reselect the sound in Sound Studio if playback fails.
+- Focus modes, edge-light rules, local rule simulation, feedback-backed rule suggestions, and heuristic burst detection are integrated into the Android runtime. Exact same-app title/body duplicates can be expanded from a grouped Inbox row; similar burst alerts are labeled and later PrioSort sound/light effects are suppressed.
+- Explicit action/deadline signals can offer a user-confirmed local reminder. Reminder notifications contain only the source app name, not the notification text; Android may defer scheduled delivery.
+- Priority rules can also be drafted using a constrained local natural-language format, previewed as typed fields, and saved only after the user confirms.
+- Financial analytics keeps amounts separated by parsed currency, stores heuristic merchant labels locally, charts the last seven days of saved notifications, provides a searchable retained transaction ledger, and reports redundant exact duplicates using the Inbox grouping rules. If the source notification does not identify a currency, PrioSort labels it unknown rather than assuming INR.
+- Analytics includes a Vico chart for the actual saved priority distribution, with a text breakdown and screen-reader description; an empty inbox is shown without fabricated chart data.
+- Rule backup validates bounded rule definitions, previews the replacement, and asks for confirmation. It excludes notification history and device-specific sound file URIs.
+- Appearance settings provide dark/light/system theme, reduced motion, and an adjustable in-app text scale (85%–130%) that compounds with Android's font-size setting.
+- Optional biometric app lock gates PrioSort screens on resume and hides app-switcher snapshots. It does not encrypt the local database.
+- Notification text is processed on the device. The Android app has no network permission and does not transmit notification text or OTPs. Python code is an offline developer tool and is not connected to the Android runtime.
+- Notification access must be enabled separately in Android Settings. Custom sounds are additional PrioSort alerts; the source app may still play its own sound. Android/OEM battery policies may delay listener or scheduled cleanup work.
 
----
+## Requirements and build
 
-## 1. Executive Summary
+- Android Studio with Android SDK 36 and JDK 17 (or use a compatible Gradle environment).
+- Minimum Android 8.0 (API 26).
 
-Modern smartphones receive notifications from banking apps, messaging clients, educational portals, shopping apps, social networks, and system services. Traditional chronological arrival order fails when an advertisement arrives first and an important verification code arrives last.
-
-**PrioSort** solves this through on-device contextual classification, explainable mathematical priority scoring, and dynamic reordering in a dedicated **Smart Inbox**.
-
-### The Canonical Demonstration (Section 1.3):
-
-| Arrival Order | Notification | Priority Level | Smart Inbox Position | Justification |
-| :---: | :--- | :---: | :---: | :--- |
-| **1** | Shopping sale advertisement | **$P_4$ (Minimal)** | **5 (Last)** | Promotional wording, no action/deadline |
-| **2** | Ordinary WhatsApp message | **$P_2$ (Medium)** | **4** | Routine personal conversation |
-| **3** | Important bank transaction | **$P_1$ (High)** | **2** | High-value debit alert ($\ge 2000$) |
-| **4** | College submission deadline | **$P_1$ (High)** | **3** | Imminent deadline due today |
-| **5** | Banking OTP | **$P_0$ (Critical)** | **1 (Top)** | Verification passcode, urgent action |
-
-Even though the Banking OTP arrived **5th (latest)**, PrioSort immediately promotes it to **Position #1**!
-
----
-
-## 2. Project Architecture
-
-```
-PrioSort/
-|
-├── README.md                     # Root project documentation
-├── requirements-dev.txt          # Python dependencies
-├── .gitignore                    # Version control exclusions
-|
-├── android/                      # Native Android Application
-│   ├── settings.gradle.kts
-│   ├── build.gradle.kts
-│   ├── gradle.properties
-│   └── app/
-│       ├── build.gradle.kts      # Compose, Room, Lifecycle, Coroutines
-│       ├── proguard-rules.pro
-│       └── src/
-│           ├── main/
-│           │   ├── AndroidManifest.xml
-│           │   ├── java/com/priosort/app/
-│           │   │   ├── MainActivity.kt               # Jetpack Compose Navigation & Entrypoint
-│           │   │   ├── PrioSortApplication.kt        # Room database DI & Demo Seed Data
-│           │   │   ├── capture/                      # NotificationListenerService & Mapping
-│           │   │   ├── domain/                       # Core Entities, Categories, Priorities
-│           │   │   ├── intelligence/                 # OtpDetector, Banking, Deadlines, PriorityEngine
-│           │   │   ├── sorting/                      # Multi-key NotificationSorter
-│           │   │   ├── data/                         # Room SQLite Database & Repositories
-│           │   │   ├── ui/                           # Jetpack Compose M3 Screens & Components
-│           │   │   └── util/                         # TextRedactor & TimeUtils
-│           │   └── res/                              # Android Resources (strings, colors, themes)
-│           └── test/                                 # Unit & Reordering Tests
-│
-├── python/                       # ML, Evaluation & Dashboard
-│   ├── requirements.txt
-│   ├── data/                     # Synthetic Train/Test Datasets & Evaluation Reports
-│   ├── models/                   # Serialized ML Models (TF-IDF + Logistic Regression)
-│   ├── priosort_ml/              # Preprocessing, Classifier, Evaluator, Priority Simulator
-│   ├── scripts/                  # Dataset generator, Training, Evaluation, Simulation scripts
-│   ├── dashboard/                # Interactive Streamlit Demonstration Dashboard
-│   └── tests/                    # Pytest verification suite
-│
-└── docs/                         # Detailed Specifications
-    ├── architecture.md           # System architecture & component interaction
-    ├── priority_policy.md        # Scoring formula S and rule hierarchy
-    ├── privacy.md                # Privacy guarantees, local-first storage, redaction
-    ├── testing.md                # Comprehensive test strategy
-    ├── model_evaluation.md       # ML evaluation report and metrics
-    └── demo_guide.md             # Step-by-step walkthrough & verification guide
+```shell
+cd android
+./gradlew testDebugUnitTest assembleDebug
 ```
 
----
+Install `app/build/outputs/apk/debug/app-debug.apk`, open PrioSort, review the disclosure and enable Notification Access in Android Settings. Verify capture, sound playback and permission behavior on the target device; emulators and OEM builds differ.
 
-## 3. Priority Scoring Model
+The current API 36 debug build is available at `artifacts/PrioSort-debug.apk`; its signature was verified and its SHA-256 is in `artifacts/PrioSort-debug.apk.sha256`. This is a debug-signed APK for testing and sideloading, not a production-signed release. Device and accessibility acceptance are still required before public distribution.
 
-Base priority is computed via:
+## Tests
 
-$$S = 0.30U + 0.25A + 0.25D + 0.15I + 0.05R$$
+Android JVM unit tests:
 
-Where:
-- **$U$ (Urgency):** $0$ to $100$ based on intrinsic event urgency.
-- **$A$ (Action Requirement):** $100$ (explicit required), $75$ (review requested), $50$ (potential), $0$ (none).
-- **$D$ (Deadline Proximity):** Imminent $<1$h ($100$), $<24$h ($90$), $1-2$d ($70$), $3-7$d ($40$), $>7$d ($20$).
-- **$I$ (User Importance):** User-configured app/category weight ($0$ to $100$, default $50$).
-- **$R$ (Recency Decay):** $R = 100 \times \exp(-\text{age\_hours} / \tau)$ with configurable half-life $\tau = 24.0$h.
-
-### Deterministic Rule Precedence Hierarchy:
-1. High-confidence OTP / Verification Code $\to$ Override to $P_0$ (Critical)
-2. Credible Fraud Alert $\to$ Override to $P_0$ (Critical)
-3. Payment Failure or Urgent Submission Deadline $\to$ Promote to at least $P_1$ (High)
-4. Important Financial Transaction Alert $\to$ Promote to at least $P_1$ (High)
-5. Promotional Marketing Content $\to$ Demote to $P_4$ (Minimal)
-6. Personal Messages / Routine Receipts $\to$ Ensure at least $P_2$ (Medium)
-
----
-
-## 4. Quick Start & Verification
-
-### 4.1 Run Python Tests & Executive Summary Simulation
-
-```bash
-# 1. Install Python requirements
-pip install -r requirements-dev.txt
-
-# 2. Run automated tests
-pytest python/tests
-
-# 3. Verify Executive Summary reordering in 2 seconds
-python python/scripts/simulate_priority.py
-
-# 4. Launch interactive demonstration dashboard
-streamlit run python/dashboard/app.py
-```
-
-### 4.2 Building and Running Android App
-
-Open the `android/` directory in Android Studio (Giraffe, Hedgehog, Iguana, Jellyfish, or newer) or build from terminal:
-```bash
+```shell
 cd android
 ./gradlew testDebugUnitTest
 ```
 
----
+Offline Python utility tests (if Python tools are used):
 
-## 5. Privacy & Android Platform Guarantees
+```shell
+python -m pip install -r requirements-dev.txt
+python -m pytest python/tests -q
+```
 
-- **No Remote Transmission:** All notifications are analyzed locally on-device.
-- **OTP Redaction:** Passcodes can be automatically redacted (`••••••`) in SQLite storage and UI display.
-- **Android Platform Honesty:** Android does not permit arbitrary reordering of the system notification shade by third-party apps. PrioSort delivers its reordering reliably inside its dedicated Smart Inbox.
+Python utilities provide synthetic-data training/evaluation, CLI analysis and a dashboard. Their synthetic evaluation is not evidence of production model accuracy and they do not receive data from the Android app.
 
+## Privacy and launch notes
 
----
+See [docs/privacy.md](docs/privacy.md), [docs/architecture.md](docs/architecture.md) and [docs/model_evaluation.md](docs/model_evaluation.md). Constrained natural-language priority-rule drafting is available locally; optional on-device ML is not wired into the Android app. Before public distribution, add a monitored privacy contact, host the policy, complete store Data safety disclosures, configure release signing, and perform device/accessibility testing. Do not treat notification classification as a high-stakes security decision.
 
-## 6. Advanced Features Added
-
-- 🎯 **Contextual Focus Modes (Work, Sleep, Personal):**
-  Dynamic time-of-day shifting: elevates work alerts during office hours, suppresses non-urgent buzzes during sleep, while **$P_0$ Critical OTPs/Fraud alerts remain strictly immune to suppression**.
-- 🛡️ **Spam Burst & Near-Duplicate Suppression:**
-  Aggregates rapid successive alerts (e.g. 5 messages in 2 minutes) into a single card with an aggregated counter badge.
-- 📋 **Dual Inbox Presentation (Ranked Stream vs Priority Tiers):**
-  Toggle between a unified sorted stream and structured Priority Section blocks ($P_0$ Critical down to $P_4$ Minimal).
-- 🔑 **One-Tap Safe "Copy OTP" Action:**
-  Extracts and allows 1-tap clipboard copying of verification passcodes while upholding screen redaction.
-- ⚙️ **User Custom Rules Engine:**
-  Allows users to define custom keyword $\to$ priority/category mappings stored in Room DB.
-- 🧪 **Interactive In-App Notification Sandbox:**
-  Test arbitrary notification titles, bodies, and package presets directly in the app to watch real-time reordering live.
-- 💾 **JSON Data Export & Import:**
-  Complete dataset export with automated sensitive data redaction.
-
-- ⏰ **Smart Notification Snooze & Alarm Escalation (`SnoozePreset`):**
-  Temporarily hide non-urgent items for 15 minutes, 1 hour, or tomorrow morning; automatically resurfaces with increased urgency when the snooze window expires.
-- 🚚 **Delivery & Logistics Tracker Parser (`DeliveryTracker`):**
-  Distinguishes package transitions (Out for delivery today $\to$ $P_1$ High, Delivery failed $\to$ $P_1$ High, Shipped $\to$ $P_2$, Delivered $\to$ $P_3$).
-- 💳 **On-Device Financial Ledger & Spend Analytics (`FinanceLedger`):**
-  Parses debit and credit amounts, merchants, and accounts completely offline to render a local spend summary and financial ledger.
-- ⭐ **VIP Senders & Critical Contacts Whitelist (`VipManager`):**
-  Protects messages from family, doctors, or supervisors by elevating VIP communications to High priority regardless of generic category scores.
-- 📦 **Notification Archive & Trash Recovery:**
-  Archive completed notifications with one tap without deleting them from SQLite history.
+See [docs/feature_status.md](docs/feature_status.md) for the implementation inventory and remaining acceptance work.
+See [docs/open_source_tech.md](docs/open_source_tech.md) and [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for the dependency stack and licensing notes.

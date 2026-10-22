@@ -16,11 +16,17 @@ object DataExporter {
     fun exportToJson(notifications: List<NotificationRecord>, enforceRedaction: Boolean = true): String {
         val sanitized = if (enforceRedaction) {
             notifications.map { record ->
-                if (record.otpDetected) {
-                    record.copy(body = TextRedactor.redactOtp(record.body))
-                } else {
-                    record
-                }
+                fun redact(value: String?): String? = value?.let(TextRedactor::redactSensitiveText)
+
+                record.copy(
+                    title = redact(record.title),
+                    body = redact(record.body),
+                    normalizedText = redact(record.normalizedText).orEmpty(),
+                    actionDescription = redact(record.actionDescription),
+                    deadlineText = redact(record.deadlineText),
+                    priorityOverrideReason = redact(record.priorityOverrideReason),
+                    explanationJson = redact(record.explanationJson).orEmpty(),
+                )
             }
         } else {
             notifications

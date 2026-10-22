@@ -11,7 +11,8 @@ object BurstDetector {
     data class BurstAnalysisResult(
         val isBurst: Boolean,
         val burstCount: Int,
-        val suppressionMessage: String?
+        val suppressionMessage: String?,
+        val matchingEventKeys: List<String> = emptyList()
     )
 
     /**
@@ -26,7 +27,8 @@ object BurstDetector {
         nowMs: Long = System.currentTimeMillis()
     ): BurstAnalysisResult {
         val sameAppRecents = recentNotifications.filter {
-            it.packageName == newPackageName && (nowMs - it.receivedAt) <= windowMs
+            val ageMs = nowMs - it.receivedAt
+            it.packageName == newPackageName && ageMs in 0..windowMs
         }
 
         if (sameAppRecents.isEmpty()) {
@@ -34,23 +36,21 @@ object BurstDetector {
         }
 
         // Count similar notifications in window
-        var matchingCount = 1
-        for (rec in sameAppRecents) {
+        val matching = sameAppRecents.filter { rec ->
             val titleMatch = !newTitle.isNullOrBlank() && rec.title.equals(newTitle, ignoreCase = true)
             val bodySimilar = !newBody.isNullOrBlank() && !rec.body.isNullOrBlank() && (
                     rec.body.contains(newBody, ignoreCase = true) || newBody.contains(rec.body, ignoreCase = true)
                     )
-
-            if (titleMatch || bodySimilar) {
-                matchingCount++
-            }
+            titleMatch || bodySimilar
         }
+        val matchingCount = matching.size + 1
 
         return if (matchingCount >= 3) {
             BurstAnalysisResult(
                 isBurst = true,
                 burstCount = matchingCount,
-                suppressionMessage = "Notification burst detected ($matchingCount alerts from ${sameAppRecents.firstOrNull()?.applicationName ?: newPackageName} in <3m)"
+                suppressionMessage = "Notification burst detected ($matchingCount alerts from ${matching.firstOrNull()?.applicationName ?: newPackageName} in <3m)",
+                matchingEventKeys = matching.map { it.eventKey }
             )
         } else {
             BurstAnalysisResult(false, matchingCount, null)

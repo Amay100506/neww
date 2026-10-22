@@ -84,14 +84,15 @@ class NotificationSorterTest {
     }
 
     @Test
-    fun testPinnedPrecedence() {
-        // Even a Low priority notification that is pinned should rank at the top
+    fun testPriorityPrecedesPinning() {
+        // Pinning changes order within a priority level, not across priority levels.
         val normalHigh = createTestRecord(id = 1, title = "High Alert", priority = PriorityLevel.HIGH, isPinned = false)
         val pinnedLow = createTestRecord(id = 2, title = "Pinned Note", priority = PriorityLevel.LOW, isPinned = true)
 
         val sorted = NotificationSorter.sortNotifications(listOf(normalHigh, pinnedLow))
-        assertEquals(2L, sorted[0].id)
-        assertTrue(sorted[0].isPinned)
+        assertEquals(1L, sorted[0].id)
+        assertEquals(2L, sorted[1].id)
+        assertTrue(sorted[1].isPinned)
     }
 
     private fun createTestRecord(

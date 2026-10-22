@@ -1,6 +1,7 @@
 package com.priosort.app.intelligence
 
 import java.util.regex.Pattern
+import java.util.Locale
 
 /**
  * On-device financial transaction parser and ledger extractor.
@@ -24,7 +25,7 @@ object FinanceLedger {
     )
 
     private val AMOUNT_PATTERN = Pattern.compile(
-        "(?i)(?:rs\\.?|inr|usd|\\$|eur|gbp)\\s*([\\d,]+(?:\\.\\d{2})?)"
+        "(?i)(rs\\.?|inr|usd|\\$|eur|gbp|₹)\\s*([\\d,]+(?:\\.\\d{2})?)"
     )
 
     private val DEBIT_KEYWORDS = listOf("debited", "spent", "paid", "withdrawn", "sent to")
@@ -35,7 +36,7 @@ object FinanceLedger {
 
     fun parse(text: String?): ParsedTransaction {
         if (text.isNullOrBlank()) {
-            return ParsedTransaction(false, TransactionType.UNKNOWN, null, "INR", null, null)
+            return ParsedTransaction(false, TransactionType.UNKNOWN, null, "UNKNOWN", null, null)
         }
 
         val lower = text.lowercase()
@@ -44,25 +45,25 @@ object FinanceLedger {
         val isCredit = CREDIT_KEYWORDS.any { lower.contains(it) }
 
         if (!isDebit && !isCredit) {
-            return ParsedTransaction(false, TransactionType.UNKNOWN, null, "INR", null, null)
+            return ParsedTransaction(false, TransactionType.UNKNOWN, null, "UNKNOWN", null, null)
         }
 
         val type = if (isDebit) TransactionType.DEBIT else TransactionType.CREDIT
 
         // Extract amount
         var amount: Double? = null
+        var currency = "UNKNOWN"
         val amtMatcher = AMOUNT_PATTERN.matcher(text)
         if (amtMatcher.find()) {
-            val rawAmt = amtMatcher.group(1)?.replace(",", "")
+            val rawAmt = amtMatcher.group(2)?.replace(",", "")
             amount = rawAmt?.toDoubleOrNull()
-        }
-
-        // Currency
-        val currency = when {
-            lower.contains("usd") || lower.contains("$") -> "USD"
-            lower.contains("eur") -> "EUR"
-            lower.contains("gbp") -> "GBP"
-            else -> "INR"
+            currency = when (amtMatcher.group(1)?.lowercase(Locale.ROOT)) {
+                "usd", "\$" -> "USD"
+                "eur" -> "EUR"
+                "gbp" -> "GBP"
+                "inr", "rs", "rs.", "₹" -> "INR"
+                else -> "UNKNOWN"
+            }
         }
 
         // Account ending

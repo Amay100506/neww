@@ -49,9 +49,13 @@ class PriorityEngine(
                 explanations.add("Payment failure requires prompt attention (Urgency: 85)")
                 85.0f
             }
-            deadlineResult.hasDeadline -> {
+            deadlineResult.hasDeadline && deadlineResult.resolutionStatus == "RESOLVED" -> {
                 explanations.add("Active deadline requires attention (Urgency: 80)")
                 80.0f
+            }
+            deadlineResult.hasDeadline -> {
+                explanations.add("Deadline wording detected, but its timing could not be resolved")
+                40.0f
             }
             financialType == BankingClassifier.FinancialEventType.IMPORTANT_TRANSACTION -> {
                 explanations.add("High-value transaction alert (Urgency: 75)")
@@ -87,8 +91,10 @@ class PriorityEngine(
 
         // 3. Deadline Score (0 - 100)
         val deadlineScore = deadlineResult.deadlineScore
-        if (deadlineResult.hasDeadline) {
+        if (deadlineResult.hasDeadline && deadlineResult.resolutionStatus == "RESOLVED") {
             explanations.add("Deadline proximity: ${deadlineResult.deadlineText} (Score: $deadlineScore)")
+        } else if (deadlineResult.hasDeadline) {
+            explanations.add("Unresolved deadline signal: ${deadlineResult.deadlineText}")
         }
 
         // 4. User Importance (0 - 100)

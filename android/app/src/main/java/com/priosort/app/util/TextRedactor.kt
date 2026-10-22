@@ -10,7 +10,7 @@ object TextRedactor {
 
     private val OTP_PATTERNS = listOf(
         // Preceded by OTP / code / verification keywords
-        Pattern.compile("(?i)(?:otp|code|password|passcode|pin)[:\\s-]*([0-9]{4,8})\\b"),
+        Pattern.compile("(?i)(?:otp|one[- ]time password|verification code|security code|code|password|passcode|pin)(?:\\s+is)?[:\\s-]*([0-9]{4,8})\\b"),
         // Preceded by code and followed by verification phrase
         Pattern.compile("(?i)\\b([0-9]{4,8})\\b(?=.*(?:verification|security code|otp))")
     )
@@ -22,7 +22,7 @@ object TextRedactor {
      */
     fun redactOtp(text: String?): String {
         if (text.isNullOrBlank()) return ""
-        var redacted = text
+        var redacted = text.orEmpty()
 
         for (pattern in OTP_PATTERNS) {
             val matcher = pattern.matcher(redacted)
@@ -31,7 +31,9 @@ object TextRedactor {
                 val groupVal = matcher.group(1)
                 if (groupVal != null) {
                     val masked = "•".repeat(groupVal.length)
-                    matcher.appendReplacement(sb, matcher.group(0).replace(groupVal, masked))
+                    val match = matcher.group(0) ?: continue
+                    val replacement = match.replace(groupVal, masked)
+                    matcher.appendReplacement(sb, java.util.regex.Matcher.quoteReplacement(replacement))
                 }
             }
             matcher.appendTail(sb)
@@ -39,6 +41,11 @@ object TextRedactor {
         }
 
         return redacted
+    }
+
+    /** Applies OTP and account/card masking to any persisted or exported text. */
+    fun redactSensitiveText(text: String?): String {
+        return maskAccountNumbers(redactOtp(text))
     }
 
     /**
@@ -52,7 +59,9 @@ object TextRedactor {
             val num = matcher.group(1)
             if (num != null && num.length > 4) {
                 val masked = "••••" + num.takeLast(4)
-                matcher.appendReplacement(sb, matcher.group(0).replace(num, masked))
+                val match = matcher.group(0) ?: continue
+                val replacement = match.replace(num, masked)
+                matcher.appendReplacement(sb, java.util.regex.Matcher.quoteReplacement(replacement))
             }
         }
         matcher.appendTail(sb)

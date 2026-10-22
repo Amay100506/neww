@@ -1,33 +1,22 @@
-# PrioSort Privacy and Security Architecture
+# PrioSort privacy and data handling
 
-## 1. Local-First Processing Guarantee
+**Effective date:** October 22, 2026
+**Product:** PrioSort for Android
 
-PrioSort is architected with a strict privacy-first principle:
-- **Zero Cloud Dependencies:** The core application executes all notification capture, categorization, priority scoring, explainability generation, and SQLite persistence on the local Android device.
-- **No Third-Party APIs:** PrioSort does not transmit notification bodies, titles, metadata, or auth tokens to remote LLMs or external cloud services.
-- **Works Fully Offline:** All intelligence features operate without active cellular or Wi-Fi connectivity.
+PrioSort is a local notification inbox. Android provides notification content only after the user grants Notification Access. Enable it only if you want PrioSort to process notifications from other apps.
 
----
+## Information accessed and processing
 
-## 2. On-Device Sensitive Data Redaction
+The listener can receive notification title/text, posting time, app package and app label, and may read sender identity when the source app exposes it. PrioSort analyzes this information locally for category, priority, OTP, financial-event and action signals. When the user schedules a reminder, WorkManager stores only the local notification record ID; the eventual reminder contains the source app label and generic reminder wording, not the captured message. Notification text and OTPs are not sent to a remote service. The Android app does not request network access. Python tools in this repository are offline development utilities and are not connected to the Android app.
 
-Verification codes, one-time passwords, and banking identifiers contain sensitive access privileges. PrioSort implements proactive masking via `TextRedactor`:
-- **OTP Code Masking:** When redaction is enabled (default), detected numeric passcodes are masked with bullets (`••••••`) prior to persistence in Room SQLite and before rendering in UI cards.
-- **Card and Account Masking:** Financial card and bank account numbers are masked to only their trailing four digits (`••••8912`).
+## Storage and redaction
 
----
+Notification records and custom rules are stored in the app-private Room database. Preferences are stored locally with DataStore. The app disables Android backup. The database is not separately encrypted by PrioSort and relies on Android's app sandbox and device security. The optional biometric app lock hides the app interface and app-switcher screenshots but does not encrypt data. When Hide verification codes is enabled, PrioSort attempts to mask recognized codes and account/card patterns in saved text fields. This heuristic can miss sensitive content. With redaction disabled, original text may be stored. Some locally derived metadata, including transaction amounts, parsed currency and heuristic merchant labels, can also be retained.
 
-## 3. Privacy Controls Available to the User
+## Retention and controls
 
-1. **Explicit Permission Grant:**
-   PrioSort only captures notifications after the user explicitly grants Notification Listener access through Android's dedicated system settings (`ACTION_NOTIFICATION_LISTENER_SETTINGS`).
-2. **Global Capture Pause:**
-   Users can pause notification ingestion at any time with a single toggle in the Settings screen. When paused, incoming notification events are discarded immediately.
-3. **Application Exclusions:**
-   Users can exclude specific sensitive applications (e.g. password managers, health apps, private messengers). Excluded app notifications are filtered out before reaching the intelligence pipeline.
-4. **Configurable Data Retention:**
-   Users can configure automated cleanup between $1$ and $30$ days. Expired records are deleted from SQLite.
-5. **Complete Data Deletion:**
-   The Settings screen provides a dedicated "Clear All Local Data" action that completely wipes all stored notifications and priority scores.
-6. **No Cloud Backup Leakage:**
-   PrioSort explicitly configures `data_extraction_rules.xml` and `backup_rules.xml` to prevent Android cloud backup from copying the internal SQLite database off the device.
+The retention period is selected in Settings. Cleanup uses WorkManager and app startup, but Android may defer scheduled work. Users can pause capture, exclude apps, change redaction and retention settings, revoke Notification Access in Android settings, or delete saved records from Settings. These controls affect future processing or local records; revoking access does not itself erase existing records.
+
+## Platform and launch notes
+
+Notification access can be interrupted by Android or device-vendor background policies. Custom sounds are additional PrioSort alerts; source apps and Android control their original notification sounds. Selected audio files can be deleted or become inaccessible. Before public distribution, the publisher must add its legal identity and a monitored privacy contact, host this policy at a stable URL, and complete accurate store Data safety disclosures.
